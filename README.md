@@ -11,10 +11,3 @@ one could take in account where people are going as well to be able to
 collocate people going to the same place. This requires changing the
 interface to not only know if the person is going up or down but also which
 floor.
-
-The code is written fairly quick and some parts need improving. The code could
-be cleaned up and there are some races that can happen if this is run in
-parallel.
-
-Unfortunately I didn't have time to test the nearestElevator properly so there
-might be some bugs there. Testing should be improved greatly.

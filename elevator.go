@@ -4,105 +4,122 @@ import (
 	"fmt"
 )
 
-const (
-	Up   = 1
-	Down = -1
-)
+// Elevator is the interface which to use
+type Elevator interface {
+	// Return the ID of the elevator
+	ID() int
+
+	// String is the representation of the elevator status
+	String() string
+
+	// Move makes the elevator move in the direction the elevator is // called to
+	Move()
+
+	// GoToFloor sets a floor which the elevator should go to
+	GoToFloor(int)
+
+	// AtFloor returns true if the elevator is at the floor specified
+	AtFloor(int) bool
+
+	// Direction returns the direction the elevator is going
+	Direction() Direction
+
+	// ProximityTo is the proximity to a supplied floor
+	ProximityTo(int) int
+}
 
 // Elevator is the state of an elevator at any given moment
-type Elevator struct {
-	ID        int
-	Floor     int
-	GoalFloor int
-	Floors    []int
+type elevator struct {
+	id        int
+	floor     int
+	goalFloor int
+	floors    Floors
+}
+
+// NewElevator returns a new elevator instance
+func NewElevator(id int) Elevator {
+	return &elevator{
+		id: id,
+	}
+}
+
+// ID returns the ID of the elevator
+func (e *elevator) ID() int {
+	return e.id
 }
 
 // String is the string representation of an elevator
-func (e *Elevator) String() string {
-	return fmt.Sprintf("elevator %d is currently on floor %d with goal floor %d", e.ID, e.Floor, e.GoalFloor)
+func (e *elevator) String() string {
+	return fmt.Sprintf("elevator id=%d, floor=%d, goal=%d, direction=%s", e.id, e.floor, e.goalFloor, e.Direction())
 }
 
 // Move makes the elevator move one step at the direction it's going
-func (e *Elevator) Move() {
-	if e.GoalFloor == 0 {
-		return
+func (e *elevator) Move() {
+	switch e.Direction() {
+	case Up:
+		e.floor++
+	case Down:
+		e.floor--
 	}
 
-	if e.direction() == Down {
-		e.Floor--
-	}
-
-	if e.direction() == Up {
-		e.Floor++
-	}
+	e.removeVisited()
+	e.updateGoal()
 }
 
-// SetGoal is the interface to order an elevator to go to a specific floor
-func (e *Elevator) SetGoal(goalFloor int) {
-	if len(e.Floors) == 0 {
-		e.GoalFloor = goalFloor
+// GoToFloor is the interface to order an elevator to go to a specific floor
+func (e *elevator) GoToFloor(floor int) {
+	if e.floors.Len() == 0 {
+		e.goalFloor = floor
 	}
-
-	e.Floors = append(e.Floors, goalFloor)
-
-	// checkGoal is done here because we want to see instant changes in
-	// the GoalFloor when this is updated
-	e.checkGoal()
+	e.floors.Add(floor)
 }
 
-// direction is the direction the elevator is going
-func (e *Elevator) direction() int {
-	if e.Floor > e.GoalFloor {
+// AtFloor checks if the elevator is at a specific floor
+func (e *elevator) AtFloor(floor int) bool {
+	return e.floor == floor
+}
+
+// Direction is the direction the elevator is going
+func (e *elevator) Direction() Direction {
+	if e.floor > e.goalFloor {
 		return Down
-	} else if e.Floor < e.GoalFloor {
+	} else if e.floor < e.goalFloor {
 		return Up
 	}
-
 	return 0
 }
 
-// atGoal checks if the elevator is at the current goal
-func (e *Elevator) atGoal() bool {
-	// Check goal to mark visited floors as visited
-	e.checkGoal()
-
-	if e.Floor == e.GoalFloor {
-		return true
+// ProximityTo returns the proximity to the floor supplied
+func (e *elevator) ProximityTo(floor int) int {
+	if e.floor > floor {
+		return e.floor - floor
 	}
-
-	return false
+	return floor - e.floor
 }
 
-// checkGoal checks all the goals (all floors that has been pushed and marks
-// them as visited or sets the new goal.
-func (e *Elevator) checkGoal() {
-	var activeGoals []int
-	max := -1
-	min := -1
-
-	for _, floor := range e.Floors {
-		// The floor has been visited
-		if e.Floor == floor {
-			continue
-		}
-
-		if floor > max || max == -1 {
-			max = floor
-		}
-		if floor < min || min == -1 {
-			min = floor
-		}
-
-		activeGoals = append(activeGoals, floor)
+// updateGoal updates the goal to the highest/lowest
+func (e *elevator) updateGoal() {
+	if e.floors.Len() <= 0 {
+		return
 	}
 
-	if len(e.Floors) > 0 {
-		if e.direction() == Up {
-			e.GoalFloor = max
-		} else if e.direction() == Down {
-			e.GoalFloor = min
-		}
+	if e.Direction() == Up {
+		e.goalFloor = e.floors.PeekHighest()
+	} else {
+		e.goalFloor = e.floors.PeekLowest()
+	}
+}
+
+// removeVistied removes visited floors
+func (e *elevator) removeVisited() {
+	if e.floors.Len() <= 0 {
+		return
 	}
 
-	e.Floors = activeGoals
+	switch e.floor {
+	case e.floors.PeekLowest():
+		e.floors.Lowest()
+	case e.floors.PeekHighest():
+		e.floors.Highest()
+	}
 }

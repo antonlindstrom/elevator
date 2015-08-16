@@ -10,72 +10,68 @@ var (
 	ErrNoElevator = errors.New("error: no elevator could be dispatched")
 )
 
+type ElevatorSystem interface {
+	Status() []Elevator
+	Pickup(int, int) Elevator
+	Step()
+}
+
 // ElevatorSystem is the collection of all elevators in the building
-type ElevatorSystem struct {
+type elevatorSystem struct {
 	maxFloors int
-	elevators []*Elevator
+	elevators []Elevator
 }
 
 // New instantiates a new elevator system with a number of elevators specified
-func New(numElevators, maxFloors int) *ElevatorSystem {
-	var elevators []*Elevator
+func New(numElevators, maxFloors int) ElevatorSystem {
+	var elevators []Elevator
 	for i := 0; i < numElevators; i++ {
-		elevators = append(elevators, &Elevator{ID: i, Floor: 0})
+		elevators = append(elevators, NewElevator(i))
 	}
 
-	return &ElevatorSystem{elevators: elevators, maxFloors: maxFloors}
+	return &elevatorSystem{elevators: elevators, maxFloors: maxFloors}
 }
 
 // Status returns the status (ID, floor and goal floor) of all elevators in
 // the system.
-func (es *ElevatorSystem) Status() []*Elevator {
+func (es *elevatorSystem) Status() []Elevator {
 	return es.elevators
 }
 
-// Pickup is the interface to request an elevator to the specified floor
-func (es *ElevatorSystem) Pickup(floor, direction int) (*Elevator, error) {
-	elevator, err := es.nearestElevator(floor, direction)
-	if err != nil {
-		return nil, err
+// Pickup is the interface to request an elevator to the specified floor, this
+// blocks until an elevator has been found.
+func (es *elevatorSystem) Pickup(floor, direction int) (e Elevator) {
+	err := ErrNoElevator
+
+	// Continue this until we find an elevator
+	for err == ErrNoElevator {
+		e, err = es.nearestElevator(floor, Direction(direction))
 	}
 
-	elevator.SetGoal(floor)
-	return elevator, nil
+	e.GoToFloor(floor)
+	return e
 }
 
 // Step is the ticker for the elevator system to run
-func (es *ElevatorSystem) Step() {
+func (es *elevatorSystem) Step() {
 	for _, elevator := range es.elevators {
-		if elevator.atGoal() {
-			continue
-		}
-
 		elevator.Move()
 	}
 }
 
 // nearestElevator gets the nearest elevator to a floor with the correct
 // direction
-func (es *ElevatorSystem) nearestElevator(floor, direction int) (*Elevator, error) {
-	var nearest *Elevator
+func (es *elevatorSystem) nearestElevator(floor int, direction Direction) (Elevator, error) {
+	var nearest Elevator
 	score := es.maxFloors
 
 	for _, e := range es.elevators {
-		if e.direction() != 0 && e.direction() != direction {
-			continue
-		}
-
-		nv := 0
-		if e.Floor > floor {
-			nv = e.Floor - floor
-		} else {
-			nv = floor - e.Floor
-		}
-
-		// Set the lowest score as the nearest elevator
-		if nv < score {
-			score = nv
-			nearest = e
+		if e.Direction() == NotMoving || e.Direction() == direction {
+			proximity := e.ProximityTo(floor)
+			if proximity < score {
+				score = proximity
+				nearest = e
+			}
 		}
 	}
 
