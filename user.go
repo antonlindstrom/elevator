@@ -12,7 +12,7 @@ type User struct {
 	elevators        ElevatorSystem
 	assignedElevator Elevator
 
-	blockChan chan struct{}
+	blockChain chan struct{}
 }
 
 // NewUser creates a new User instance
@@ -20,7 +20,7 @@ func NewUser(es ElevatorSystem, atFloor int) *User {
 	return &User{
 		elevators: es,
 		atFloor:   atFloor,
-		blockChan: make(chan struct{}),
+		blockChain: make(chan struct{}),
 	}
 }
 
@@ -64,15 +64,15 @@ func (u *User) Update() {
 	// handle going out of elevator
 	if u.assignedElevator.AtFloor(u.toFloor) && u.inElevator {
 		u.inElevator = false
-		u.blockChan <- struct{}{}
+		u.blockChain <- struct{}{}
 	}
 }
 
 // Block will block until the update has triggered and the user is at the
 // correct floor
 func (u *User) Block() {
-	for _ = range u.blockChan {
-		close(u.blockChan)
+	for _ = range u.blockChain {
+		close(u.blockChain)
 	}
 }
 
